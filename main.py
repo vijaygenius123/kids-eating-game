@@ -1,4 +1,5 @@
 import os
+import random
 
 import cv2
 import cvzone
@@ -35,12 +36,43 @@ for obj in non_eatables_list:
 print(eatables)
 print(non_eatables)
 
+current_obj = eatables[0]
+pos = [300, 0]
+
+speed = 7
+count = 0
+
+global isEatable
+isEatable = True
+def reset_object():
+    global isEatable
+    pos[0] = random.randint(100, 1180)
+    pos[1] = 0
+    rand = random.randint(0, 2)
+    if(rand==0):
+        current_obj = eatables[random.randint(0, 3)]
+        isEatable = True
+    else:
+        current_obj = non_eatables[random.randint(0, 3)]
+        isEatable = False
+    return current_obj
+
+
 while True:
     success, img = cap.read()
     img, faces = detector.findFaceMesh(img, draw=False)
+
+    img = cvzone.overlayPNG(img, current_obj, pos)
+    pos[1] += speed
+
+    if (pos[1] > 720 - 150):
+        current_obj = reset_object()
+
     if faces:
         # print(faces[0])
         face = faces[0]
+        up = face[mouth_top]
+        down = face[mouth_bottom]
         '''
         for id, point in enumerate(face):
             cv2.putText(img, str(id), point, cv2.FONT_HERSHEY_COMPLEX, 0.7, (255, 0, 255), 1)
@@ -53,14 +85,28 @@ while True:
         vertical, _ = detector.findDistance(face[mouth_top], face[mouth_bottom])
         horizontal, _ = detector.findDistance(face[mouth_left], face[mouth_right])
 
+        cx, cy = (up[0] + down[0])//2,  (up[1] + down[1]) //2
+        cv2.line(img, (cx,cy), (pos[0]+50, pos[1] + 50), (0, 255, 0), 3)
+
+        distance, _ = detector.findDistance((cx, cy), (pos[0]+50, pos[1] + 50))
+
         ratio = int(vertical / horizontal * 100)
+
+
         if (ratio > 60):
             mouthStatus = "Open"
         else:
             mouthStatus = "Closed"
         cv2.putText(img, mouthStatus, [50, 50], cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 255), 2)
 
-        img = cvzone.overlayPNG(img, eatables[0], (300, 300))
+        if distance < 100 and ratio > 60:
+            if isEatable:
+                count += 1
+            else:
+                count = 0
+            current_obj = reset_object()
+
+        cv2.putText(img, str(count), [1100, 50], cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 255), 2)
 
     cv2.imshow("Capture", img)
     cv2.waitKey(1)
